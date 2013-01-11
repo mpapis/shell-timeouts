@@ -1,8 +1,8 @@
 #!/bin/bash
 source /etc/profile
 
-case `uname` in
-  (aDarwin)
+case $(uname) in
+  (Darwin)
     travis_list_children()
     {
       ps -o ppid= -o pid= -ax | awk '$1=='"$1"'{print $2}'
@@ -31,19 +31,19 @@ travis_kill_children_processes()
   done
 }
 
-  travis_timeout_function()
-  (
-    typeset _my_pid
-    trap "return 0" USR1
-    sleep $1
-    ( sleep 1s; ) &
-    _my_pid=$( ps -p $( ps -p $! -o ppid= ) -o ppid= ) # () - subshell does not get new $$ / $PPID
-    echo
-    echo "Timeout ($1 seconds) reached for: $3"
-    echo
-    travis_kill_children_processes $( travis_list_children $2 | grep -v "^[[:space:]]*${_my_pid}$" )
-    travis_safe_kill $2
-  )
+travis_timeout_function()
+(
+  typeset _my_pid
+  trap "return 0" USR1
+  sleep $1
+  ( sleep 1s; ) &
+  _my_pid=$( ps -p $( ps -p $! -o ppid= ) -o ppid= ) # () - subshell does not get new $$ / $PPID
+  echo
+  echo "Timeout ($1 seconds) reached for: $3"
+  echo
+  travis_kill_children_processes $( travis_list_children $2 | grep -v "^[[:space:]]*${_my_pid}$" )
+  travis_safe_kill $2
+)
 
 travis_timeout()
 {
