@@ -31,17 +31,23 @@ travis_kill_children_processes()
   done
 }
 
+# () - subshell does not get new $$ / $PPID
+detect_subshell_pid()
+{
+  ( sleep 1s; ) &
+  _subshell_pid=$( ps -p $( ps -p $! -o ppid= ) -o ppid= )
+}
+
 travis_timeout_function()
 (
-  typeset _my_pid
+  echo "Timeout ($1 seconds) started for: $3"
   trap "return 0" USR1
   sleep $1
-  ( sleep 1s; ) &
-  _my_pid=$( ps -p $( ps -p $! -o ppid= ) -o ppid= ) # () - subshell does not get new $$ / $PPID
+  detect_subshell_pid
   echo
   echo "Timeout ($1 seconds) reached for: $3"
   echo
-  travis_kill_children_processes $( travis_list_children $2 | grep -v "^[[:space:]]*${_my_pid}$" )
+  travis_kill_children_processes $( travis_list_children $2 | grep -v "^[[:space:]]*${_subshell_pid}$" )
   travis_safe_kill $2
 )
 
@@ -53,6 +59,8 @@ travis_timeout()
   shift
   travis_timeout_function ${_my_timeout} $$ "$*" &
   _waiter_pid=$!
+  echo "\$ $*"
+ps ajxf | awk $$'==$3{print}'
   "$@" || _return=$?
   travis_safe_kill $_waiter_pid -USR1
   return ${_return}
@@ -61,12 +69,7 @@ travis_timeout()
 travis_timeout_function 5 $$ "Script timeout!" &
 _global_waiter_pid=$!
 
-ps ajxf | awk $$'==$3{print}'
-echo '$ bundle install'
 travis_timeout 3 bundle install
-ps ajxf | awk $$'==$3{print}'
-echo '$ bundle exec rake'
 travis_timeout 3 bundle exec rake
-ps ajxf | awk $$'==$3{print}'
 
 travis_safe_kill $_global_waiter_pid -USR1
